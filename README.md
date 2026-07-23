@@ -2,6 +2,8 @@
 
 A personal finance dashboard for tracking salaries, deductions, savings, and custom categories. The frontend is ready for Netlify and the data is stored in Supabase.
 
+The dashboard includes persistent dark mode, Google account linking, logout, and expandable expense history.
+
 ## Supabase setup
 
 1. Create a project at [supabase.com](https://supabase.com/).

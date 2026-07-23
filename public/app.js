@@ -1,4 +1,8 @@
-const state = { categories: [], salaries: [] };
+const state = {
+  categories: [],
+  salaries: [],
+  signedOut: localStorage.getItem('salaryManagerSignedOut') === 'true'
+};
 const money = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
 const $ = (selector) => document.querySelector(selector);
 const defaultCategoryNames = ['Groceries', 'Rent', 'Utilities', 'Fare', 'Savings'];
@@ -47,6 +51,7 @@ function escapeHtml(value) {
 }
 
 async function ensureSession() {
+  if (state.signedOut) return null;
   const current = await supabaseClient.auth.getSession();
   if (current.error) throw current.error;
   if (current.data.session) return current.data.session;
@@ -147,7 +152,18 @@ async function refresh() {
 
   try {
     hideSetupMessage();
+    if (state.signedOut) {
+      state.categories = [];
+      state.salaries = [];
+      await updateAccountStatus();
+      renderSummary();
+      renderSalaries();
+      renderCategories();
+      populateCategorySelect();
+      return;
+    }
     const session = await ensureSession();
+    if (!session) return;
     await ensureDefaultCategories(session.user.id);
     state.categories = await loadCategories();
     state.salaries = await loadSalaries();
@@ -165,17 +181,27 @@ async function refresh() {
 async function updateAccountStatus() {
   const status = $('#account-status');
   const button = $('#google-login-button');
-  if (!supabaseClient || !status || !button) return;
+  const logoutButton = $('#logout-button');
+  if (!supabaseClient || !status || !button || !logoutButton) return;
+  if (state.signedOut) {
+    status.textContent = 'Signed out';
+    button.hidden = false;
+    button.innerHTML = '<span>G</span> Sign in with Google';
+    logoutButton.hidden = true;
+    return;
+  }
   const { data, error } = await supabaseClient.auth.getUser();
   if (error || !data.user) return;
   if (data.user.is_anonymous) {
     status.textContent = 'Guest mode';
     button.hidden = false;
     button.innerHTML = '<span>G</span> Save with Google';
+    logoutButton.hidden = true;
   } else {
     const name = data.user.user_metadata?.full_name || data.user.email || 'Google account';
     status.textContent = `Signed in as ${name}`;
     button.hidden = true;
+    logoutButton.hidden = false;
   }
 }
 
@@ -308,6 +334,16 @@ $('#google-login-button').addEventListener('click', async () => {
     return;
   }
   try {
+    if (state.signedOut) {
+      state.signedOut = false;
+      localStorage.removeItem('salaryManagerSignedOut');
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin }
+      });
+      if (error) throw error;
+      return;
+    }
     const session = await ensureSession();
     if (!session.user.is_anonymous) return;
     const { error } = await supabaseClient.auth.linkIdentity({
@@ -320,8 +356,45 @@ $('#google-login-button').addEventListener('click', async () => {
   }
 });
 
+$('#logout-button').addEventListener('click', async () => {
+  try {
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) throw error;
+    state.signedOut = true;
+    localStorage.setItem('salaryManagerSignedOut', 'true');
+    await refresh();
+    showToast('You have been logged out.');
+  } catch (error) {
+    showToast(error.message || 'Unable to log out.');
+  }
+});
+
+function applyTheme(theme) {
+  const dark = theme === 'dark';
+  document.body.classList.toggle('dark-mode', dark);
+  $('#theme-toggle').setAttribute('aria-pressed', String(dark));
+  $('#theme-icon').textContent = dark ? '☀' : '☾';
+  $('#theme-label').textContent = dark ? 'Light mode' : 'Dark mode';
+}
+
+const savedTheme = localStorage.getItem('salaryManagerTheme');
+applyTheme(savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+$('#theme-toggle').addEventListener('click', () => {
+  const nextTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
+  localStorage.setItem('salaryManagerTheme', nextTheme);
+  applyTheme(nextTheme);
+});
+
 if (supabaseClient) {
-  supabaseClient.auth.onAuthStateChange(() => updateAccountStatus());
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_IN') {
+      state.signedOut = false;
+      localStorage.removeItem('salaryManagerSignedOut');
+      refresh();
+    } else {
+      updateAccountStatus();
+    }
+  });
 }
 
 $('#salary-form').addEventListener('submit', async (event) => {
