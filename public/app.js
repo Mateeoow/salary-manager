@@ -151,6 +151,7 @@ async function refresh() {
     await ensureDefaultCategories(session.user.id);
     state.categories = await loadCategories();
     state.salaries = await loadSalaries();
+    await updateAccountStatus();
     renderSummary();
     renderSalaries();
     renderCategories();
@@ -158,6 +159,23 @@ async function refresh() {
   } catch (error) {
     showSetupMessage(error.message || 'Check your Supabase project setup and refresh the page.');
     showToast(error.message || 'Unable to connect to Supabase.');
+  }
+}
+
+async function updateAccountStatus() {
+  const status = $('#account-status');
+  const button = $('#google-login-button');
+  if (!supabaseClient || !status || !button) return;
+  const { data, error } = await supabaseClient.auth.getUser();
+  if (error || !data.user) return;
+  if (data.user.is_anonymous) {
+    status.textContent = 'Guest mode';
+    button.hidden = false;
+    button.innerHTML = '<span>G</span> Save with Google';
+  } else {
+    const name = data.user.user_metadata?.full_name || data.user.email || 'Google account';
+    status.textContent = `Signed in as ${name}`;
+    button.hidden = true;
   }
 }
 
@@ -283,6 +301,28 @@ $('#open-salary-modal').addEventListener('click', () => {
 $('#open-category-modal').addEventListener('click', () => { $('#category-form').reset(); openModal('category-modal'); });
 document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => closeModal(button.dataset.close)));
 document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.addEventListener('click', (event) => { if (event.target === backdrop) closeModal(backdrop.id); }));
+
+$('#google-login-button').addEventListener('click', async () => {
+  if (!supabaseClient) {
+    showSetupMessage('Configure Supabase before connecting Google.');
+    return;
+  }
+  try {
+    const session = await ensureSession();
+    if (!session.user.is_anonymous) return;
+    const { error } = await supabaseClient.auth.linkIdentity({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) throw error;
+  } catch (error) {
+    showToast(error.message || 'Google sign-in could not start.');
+  }
+});
+
+if (supabaseClient) {
+  supabaseClient.auth.onAuthStateChange(() => updateAccountStatus());
+}
 
 $('#salary-form').addEventListener('submit', async (event) => {
   event.preventDefault();
