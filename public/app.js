@@ -456,7 +456,10 @@ $('#google-login-button').addEventListener('click', async () => {
       localStorage.removeItem('salaryManagerSignedOut');
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin }
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: { prompt: 'select_account' }
+        }
       });
       if (error) throw error;
       return;
@@ -465,7 +468,10 @@ $('#google-login-button').addEventListener('click', async () => {
     if (!session.user.is_anonymous) return;
     const { error } = await supabaseClient.auth.linkIdentity({
       provider: 'google',
-      options: { redirectTo: window.location.origin }
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: { prompt: 'select_account' }
+      }
     });
     if (error) throw error;
   } catch (error) {
