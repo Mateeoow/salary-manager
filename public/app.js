@@ -1,20 +1,37 @@
 const state = { categories: [], salaries: [] };
 const money = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
 const $ = (selector) => document.querySelector(selector);
-
-async function api(url, options = {}) {
-  const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
-  const data = response.status === 204 ? null : await response.json();
-  if (!response.ok) throw new Error(data?.error || 'Something went wrong.');
-  return data;
-}
+const defaultCategoryNames = ['Groceries', 'Rent', 'Utilities', 'Fare', 'Savings'];
+const supabaseConfig = window.SUPABASE_CONFIG || {};
+const configured = Boolean(
+  window.supabase?.createClient
+  && supabaseConfig.url
+  && supabaseConfig.anonKey
+  && !supabaseConfig.url.includes('PASTE_')
+  && !supabaseConfig.anonKey.includes('PASTE_')
+);
+const supabaseClient = configured
+  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey)
+  : null;
 
 function showToast(message) {
   const toast = $('#toast');
   toast.textContent = message;
   toast.classList.add('show');
   clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => toast.classList.remove('show'), 2800);
+  showToast.timer = setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+function showSetupMessage(message) {
+  const banner = $('#setup-banner');
+  if (!banner) return;
+  banner.innerHTML = `<strong>Supabase setup needed.</strong> ${escapeHtml(message)}`;
+  banner.hidden = false;
+}
+
+function hideSetupMessage() {
+  const banner = $('#setup-banner');
+  if (banner) banner.hidden = true;
 }
 
 function openModal(id) { document.getElementById(id).hidden = false; }
@@ -23,6 +40,125 @@ function closeModal(id) { document.getElementById(id).hidden = true; }
 function formatDate(date) {
   return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
     .format(new Date(`${date}T00:00:00`));
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+}
+
+async function ensureSession() {
+  const current = await supabaseClient.auth.getSession();
+  if (current.error) throw current.error;
+  if (current.data.session) return current.data.session;
+
+  const anonymous = await supabaseClient.auth.signInAnonymously();
+  if (anonymous.error) {
+    throw new Error('Enable Anonymous Sign-Ins in Supabase Auth, then refresh this page.');
+  }
+  return anonymous.data.session;
+}
+
+async function ensureDefaultCategories(userId) {
+  const rows = defaultCategoryNames.map((name) => ({ user_id: userId, name, is_default: true }));
+  const { error } = await supabaseClient
+    .from('categories')
+    .upsert(rows, { onConflict: 'user_id,name', ignoreDuplicates: true });
+  if (error) throw error;
+}
+
+async function loadCategories() {
+  const { data, error } = await supabaseClient
+    .from('categories')
+    .select('id, name, is_default')
+    .order('is_default', { ascending: false })
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((category) => ({ ...category, isDefault: category.is_default }));
+}
+
+async function loadSalaries() {
+  const salariesQuery = await supabaseClient
+    .from('salary_records')
+    .select('id, amount, pay_date, notes, created_at')
+    .order('pay_date', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (salariesQuery.error) throw salariesQuery.error;
+
+  const deductionsQuery = await supabaseClient
+    .from('deductions')
+    .select('salary_record_id, amount');
+  if (deductionsQuery.error) throw deductionsQuery.error;
+
+  const totals = new Map();
+  (deductionsQuery.data || []).forEach((deduction) => {
+    const current = totals.get(deduction.salary_record_id) || 0;
+    totals.set(deduction.salary_record_id, current + Number(deduction.amount));
+  });
+
+  return (salariesQuery.data || []).map((salary) => {
+    const amount = Number(salary.amount);
+    const totalDeductions = totals.get(salary.id) || 0;
+    return {
+      id: salary.id,
+      amount,
+      payDate: salary.pay_date,
+      notes: salary.notes,
+      totalDeductions,
+      remaining: amount - totalDeductions
+    };
+  });
+}
+
+async function loadSalaryDetail(salaryId) {
+  const salaryQuery = await supabaseClient
+    .from('salary_records')
+    .select('id, amount, pay_date, notes')
+    .eq('id', salaryId)
+    .single();
+  if (salaryQuery.error) throw salaryQuery.error;
+
+  const deductionsQuery = await supabaseClient
+    .from('deductions')
+    .select('id, amount, description, category_id, created_at')
+    .eq('salary_record_id', salaryId)
+    .order('created_at', { ascending: false });
+  if (deductionsQuery.error) throw deductionsQuery.error;
+
+  const categoriesById = new Map(state.categories.map((category) => [category.id, category.name]));
+  return {
+    ...salaryQuery.data,
+    payDate: salaryQuery.data.pay_date,
+    deductions: (deductionsQuery.data || []).map((deduction) => ({
+      ...deduction,
+      categoryName: categoriesById.get(deduction.category_id) || 'Uncategorized'
+    }))
+  };
+}
+
+async function refresh() {
+  if (!configured) {
+    showSetupMessage('Add your Supabase URL and publishable key to public/supabase-config.js.');
+    renderSummary();
+    renderSalaries();
+    renderCategories();
+    populateCategorySelect();
+    return;
+  }
+
+  try {
+    hideSetupMessage();
+    const session = await ensureSession();
+    await ensureDefaultCategories(session.user.id);
+    state.categories = await loadCategories();
+    state.salaries = await loadSalaries();
+    renderSummary();
+    renderSalaries();
+    renderCategories();
+    populateCategorySelect();
+  } catch (error) {
+    showSetupMessage(error.message || 'Check your Supabase project setup and refresh the page.');
+    showToast(error.message || 'Unable to connect to Supabase.');
+  }
 }
 
 function renderSummary() {
@@ -56,10 +192,10 @@ function renderSalaries() {
     </div>
   `).join('');
   document.querySelectorAll('[data-salary-id]').forEach((button) => {
-    button.addEventListener('click', () => openDeductionModal(Number(button.dataset.salaryId)));
+    button.addEventListener('click', () => openDeductionModal(button.dataset.salaryId));
   });
   document.querySelectorAll('[data-history-id]').forEach((button) => {
-    button.addEventListener('click', () => toggleExpenseHistory(Number(button.dataset.historyId), button));
+    button.addEventListener('click', () => toggleExpenseHistory(button.dataset.historyId, button));
   });
 }
 
@@ -71,13 +207,13 @@ async function toggleExpenseHistory(salaryId, button) {
     return;
   }
   try {
-    const salary = await api(`/api/salaries/${salaryId}`);
+    const salary = await loadSalaryDetail(salaryId);
     history.innerHTML = `
       <div class="history-heading"><strong>Expense history</strong><span>${salary.deductions.length} item${salary.deductions.length === 1 ? '' : 's'}</span></div>
       ${salary.deductions.length ? salary.deductions.map((deduction) => `
         <div class="expense-row">
           <div><strong>${escapeHtml(deduction.categoryName)}</strong><span>${escapeHtml(deduction.description || 'No note added')}</span></div>
-          <strong class="expense-amount">${money.format(deduction.amount)}</strong>
+          <strong class="expense-amount">${money.format(Number(deduction.amount))}</strong>
           <button class="delete-expense" data-deduction-id="${deduction.id}" aria-label="Delete expense">×</button>
         </div>
       `).join('') : '<div class="history-empty">No expenses added to this salary yet.</div>'}
@@ -85,20 +221,13 @@ async function toggleExpenseHistory(salaryId, button) {
     history.hidden = false;
     button.textContent = 'Hide history';
     history.querySelectorAll('[data-deduction-id]').forEach((deleteButton) => {
-      deleteButton.addEventListener('click', () => removeDeduction(Number(deleteButton.dataset.deductionId), salaryId));
+      deleteButton.addEventListener('click', () => removeDeduction(deleteButton.dataset.deductionId, salaryId));
     });
   } catch (error) { showToast(error.message); }
 }
 
-async function removeDeduction(deductionId, salaryId) {
-  if (!confirm('Remove this expense?')) return;
-  try {
-    await api(`/api/deductions/${deductionId}`, { method: 'DELETE' });
-    await refresh();
-    const button = document.querySelector(`[data-history-id="${salaryId}"]`);
-    if (button) await toggleExpenseHistory(salaryId, button);
-    showToast('Expense removed.');
-  } catch (error) { showToast(error.message); }
+function populateCategorySelect() {
+  $('#category-select').innerHTML = state.categories.map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`).join('');
 }
 
 function renderCategories() {
@@ -109,26 +238,8 @@ function renderCategories() {
     </div>
   `).join('');
   document.querySelectorAll('[data-category-id]').forEach((button) => {
-    button.addEventListener('click', () => removeCategory(Number(button.dataset.categoryId)));
+    button.addEventListener('click', () => removeCategory(button.dataset.categoryId));
   });
-}
-
-function populateCategorySelect() {
-  $('#category-select').innerHTML = state.categories.map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`).join('');
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
-}
-
-async function refresh() {
-  const data = await api('/api/bootstrap');
-  state.categories = data.categories;
-  state.salaries = data.salaries;
-  renderSummary();
-  renderSalaries();
-  renderCategories();
-  populateCategorySelect();
 }
 
 function openDeductionModal(salaryId) {
@@ -140,10 +251,28 @@ function openDeductionModal(salaryId) {
   openModal('deduction-modal');
 }
 
-async function removeCategory(id) {
+async function removeDeduction(deductionId, salaryId) {
+  if (!confirm('Remove this expense?')) return;
+  try {
+    const { error } = await supabaseClient.from('deductions').delete().eq('id', deductionId);
+    if (error) throw error;
+    await refresh();
+    const button = document.querySelector(`[data-history-id="${salaryId}"]`);
+    if (button) await toggleExpenseHistory(salaryId, button);
+    showToast('Expense removed.');
+  } catch (error) { showToast(error.message); }
+}
+
+async function removeCategory(categoryId) {
   if (!confirm('Remove this custom category?')) return;
-  try { await api(`/api/categories/${id}`, { method: 'DELETE' }); await refresh(); showToast('Category removed.'); }
-  catch (error) { showToast(error.message); }
+  try {
+    const { error } = await supabaseClient.from('categories').delete().eq('id', categoryId).eq('is_default', false);
+    if (error) throw error;
+    await refresh();
+    showToast('Category removed.');
+  } catch (error) {
+    showToast('This category may already be used by an expense.');
+  }
 }
 
 $('#open-salary-modal').addEventListener('click', () => {
@@ -157,32 +286,43 @@ document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.addE
 
 $('#salary-form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  const form = new FormData(event.target);
+  const form = Object.fromEntries(new FormData(event.target));
   try {
-    await api('/api/salaries', { method: 'POST', body: JSON.stringify(Object.fromEntries(form)) });
+    const { error } = await supabaseClient.from('salary_records').insert({
+      amount: Number(form.amount),
+      pay_date: form.payDate,
+      notes: form.notes.trim()
+    });
+    if (error) throw error;
     closeModal('salary-modal'); await refresh(); showToast('Salary saved. Now add your expenses.');
   } catch (error) { showToast(error.message); }
 });
 
 $('#deduction-form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  const form = new FormData(event.target);
-  const values = Object.fromEntries(form);
-  const salaryId = values.salaryId;
-  delete values.salaryId;
+  const form = Object.fromEntries(new FormData(event.target));
   try {
-    await api(`/api/salaries/${salaryId}/deductions`, { method: 'POST', body: JSON.stringify(values) });
+    const { error } = await supabaseClient.from('deductions').insert({
+      salary_record_id: form.salaryId,
+      category_id: form.categoryId,
+      amount: Number(form.amount),
+      description: form.description.trim()
+    });
+    if (error) throw error;
     closeModal('deduction-modal'); await refresh(); showToast('Expense added to this salary.');
   } catch (error) { showToast(error.message); }
 });
 
 $('#category-form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  const form = new FormData(event.target);
+  const form = Object.fromEntries(new FormData(event.target));
   try {
-    await api('/api/categories', { method: 'POST', body: JSON.stringify(Object.fromEntries(form)) });
+    const { error } = await supabaseClient.from('categories').insert({ name: form.name.trim(), is_default: false });
+    if (error) throw error;
     closeModal('category-modal'); await refresh(); showToast('Custom category added.');
-  } catch (error) { showToast(error.message); }
+  } catch (error) {
+    showToast(error.code === '23505' ? 'That category already exists.' : error.message);
+  }
 });
 
-refresh().catch((error) => showToast(error.message));
+refresh();

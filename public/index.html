@@ -37,6 +37,8 @@
           <button class="primary-button" id="open-salary-modal"><span>＋</span> Add salary</button>
         </header>
 
+        <div class="setup-banner" id="setup-banner" hidden></div>
+
         <section class="summary-grid" aria-label="Summary">
           <article class="summary-card dark-card">
             <div class="card-label"><span class="icon-circle white">₱</span> Total salary tracked</div>
@@ -121,6 +123,8 @@
     </div>
 
     <div class="toast" id="toast" role="status"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/supabase-config.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>
