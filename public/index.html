@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Track your salary, deductions, and savings in one calm dashboard." />
+    <title>Salary Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-mark">₱</div>
+        <div class="brand-copy"><span>Salary</span><strong>Manager</strong></div>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a class="active" href="#dashboard"><span>⌂</span> Overview</a>
+          <a href="#salary-history"><span>↗</span> Salary history</a>
+          <a href="#categories"><span>◎</span> Categories</a>
+        </nav>
+        <div class="sidebar-note">
+          <span class="spark">✦</span>
+          <p>Give every peso a purpose.</p>
+        </div>
+        <div class="sidebar-footer">Local workspace<br /><span>SQLite database</span></div>
+      </aside>
+
+      <main class="main-content" id="dashboard">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">PERSONAL FINANCE</p>
+            <h1>Good evening<span class="accent-dot">.</span></h1>
+            <p class="subtitle">A clear view of where your salary goes.</p>
+          </div>
+          <button class="primary-button" id="open-salary-modal"><span>＋</span> Add salary</button>
+        </header>
+
+        <section class="summary-grid" aria-label="Summary">
+          <article class="summary-card dark-card">
+            <div class="card-label"><span class="icon-circle white">₱</span> Total salary tracked</div>
+            <div class="summary-value" id="total-salary">₱0.00</div>
+            <p id="salary-count">No salary records yet</p>
+          </article>
+          <article class="summary-card coral-card">
+            <div class="card-label"><span class="icon-circle coral">↘</span> Total deductions</div>
+            <div class="summary-value" id="total-deductions">₱0.00</div>
+            <p id="deduction-rate">Start by adding a salary</p>
+          </article>
+          <article class="summary-card cream-card">
+            <div class="card-label"><span class="icon-circle green">✓</span> Available balance</div>
+            <div class="summary-value" id="total-remaining">₱0.00</div>
+            <p id="balance-caption">Your tracked take-home balance</p>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <article class="panel salary-panel" id="salary-history">
+            <div class="panel-heading">
+              <div><p class="eyebrow">RECENT ACTIVITY</p><h2>Salary history</h2></div>
+              <span class="record-count" id="record-count">0 records</span>
+            </div>
+            <div id="salary-list" class="salary-list"></div>
+          </article>
+
+          <article class="panel categories-panel" id="categories">
+            <div class="panel-heading">
+              <div><p class="eyebrow">YOUR SYSTEM</p><h2>Categories</h2></div>
+              <button class="text-button" id="open-category-modal">＋ Add</button>
+            </div>
+            <p class="panel-intro">Default needs are ready to go. Add your own whenever life changes.</p>
+            <div id="category-list" class="category-list"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="salary-modal" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="salary-modal-title">
+        <button class="close-button" data-close="salary-modal" aria-label="Close">×</button>
+        <p class="eyebrow">NEW PAYCHECK</p>
+        <h2 id="salary-modal-title">Add a salary</h2>
+        <p class="modal-copy">Record a salary first, then assign your expenses to it.</p>
+        <form id="salary-form">
+          <label>Salary amount<input name="amount" type="number" min="0" step="0.01" placeholder="25000" required /></label>
+          <label>Pay date<input name="payDate" type="date" required /></label>
+          <label>Note <span class="optional">optional</span><input name="notes" maxlength="120" placeholder="July second paycheck" /></label>
+          <button class="primary-button full-width" type="submit">Save salary</button>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="deduction-modal" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="deduction-modal-title">
+        <button class="close-button" data-close="deduction-modal" aria-label="Close">×</button>
+        <p class="eyebrow">ALLOCATE SALARY</p>
+        <h2 id="deduction-modal-title">Add a deduction</h2>
+        <p class="modal-copy" id="deduction-salary-context"></p>
+        <form id="deduction-form">
+          <input name="salaryId" type="hidden" />
+          <label>Category<select name="categoryId" id="category-select" required></select></label>
+          <label>Amount<input name="amount" type="number" min="0" step="0.01" placeholder="4000" required /></label>
+          <label>Note <span class="optional">optional</span><input name="description" maxlength="120" placeholder="Weekly market run" /></label>
+          <button class="primary-button full-width" type="submit">Save deduction</button>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="category-modal" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="category-modal-title">
+        <button class="close-button" data-close="category-modal" aria-label="Close">×</button>
+        <p class="eyebrow">CUSTOMISE</p>
+        <h2 id="category-modal-title">Add a category</h2>
+        <p class="modal-copy">Create a label for something unique to your budget.</p>
+        <form id="category-form">
+          <label>Category name<input name="name" maxlength="40" placeholder="Entertainment" required /></label>
+          <button class="primary-button full-width" type="submit">Add category</button>
+        </form>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>
