@@ -118,24 +118,35 @@ function setView(view) {
   history.replaceState(null, '', selected === 'overview' ? '#dashboard' : `#${selected}`);
 }
 
-function setupAccountArea() {
-  const accountArea = $('.account-area');
-  const themeButton = $('#theme-toggle');
-  if (!accountArea || !themeButton || $('#profile-chip')) return;
-  const profile = document.createElement('div');
-  profile.className = 'profile-chip';
-  profile.id = 'profile-chip';
-  profile.innerHTML = '<span class="profile-avatar" id="profile-avatar">G</span><span class="profile-name" id="profile-name">Guest user</span>';
-  accountArea.prepend(profile);
-  accountArea.insertBefore(themeButton, $('#account-status'));
+function setupProfileMenu() {
+  const profileButton = $('#profile-chip');
+  const menu = $('#profile-menu');
+  if (!profileButton || !menu) return;
+  profileButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = menu.hidden;
+    menu.hidden = !open;
+    profileButton.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', (event) => {
+    if (!menu.hidden && !$('#sidebar-account').contains(event.target)) {
+      menu.hidden = true;
+      profileButton.setAttribute('aria-expanded', 'false');
+    }
+  });
 }
 
 function setProfile(name) {
   const profileName = $('#profile-name');
   const avatar = $('#profile-avatar');
-  if (!profileName || !avatar) return;
+  const menuName = $('#profile-menu-name');
+  const menuAvatar = $('#profile-menu-avatar');
+  if (!profileName || !avatar || !menuName || !menuAvatar) return;
   profileName.textContent = name;
-  avatar.textContent = name === 'Guest user' ? 'G' : name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+  menuName.textContent = name;
+  const initials = name === 'Guest user' ? 'G' : name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+  avatar.textContent = initials;
+  menuAvatar.textContent = initials;
 }
 
 async function ensureSession() {
@@ -484,7 +495,7 @@ function applyTheme(theme) {
 }
 
 organizeViews();
-setupAccountArea();
+setupProfileMenu();
 
 const savedTheme = localStorage.getItem('salaryManagerTheme');
 applyTheme(savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));

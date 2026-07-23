@@ -20,7 +20,25 @@
           <a href="#salary-history"><span>↗</span> Salary history</a>
           <a href="#categories"><span>◎</span> Categories</a>
         </nav>
-        <div class="sidebar-credit">By: Martin Gayem</div>
+        <div class="sidebar-bottom">
+          <div class="sidebar-credit">By: Martin Gayem</div>
+          <div class="sidebar-account" id="sidebar-account">
+            <div class="profile-menu" id="profile-menu" hidden>
+              <div class="profile-menu-header">
+                <span class="profile-avatar" id="profile-menu-avatar">G</span>
+                <div><strong id="profile-menu-name">Guest user</strong><span class="account-status" id="account-status">Guest mode</span></div>
+              </div>
+              <button class="google-button" id="google-login-button" type="button"><span>G</span> Save with Google</button>
+              <button class="logout-button" id="logout-button" type="button" hidden>Log out</button>
+            </div>
+            <div class="sidebar-account-row">
+              <button class="profile-chip" id="profile-chip" type="button" aria-expanded="false" aria-controls="profile-menu">
+                <span class="profile-avatar" id="profile-avatar">G</span><span class="profile-name" id="profile-name">Guest user</span><span class="profile-chevron">⌄</span>
+              </button>
+              <button class="theme-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false"><span id="theme-icon">☾</span><span id="theme-label">Dark mode</span></button>
+            </div>
+          </div>
+        </div>
       </aside>
 
       <main class="main-content" id="dashboard">
@@ -31,12 +49,6 @@
             <p class="subtitle">A clear view of where your salary goes.</p>
           </div>
           <div class="top-actions">
-            <div class="account-area">
-              <span class="account-status" id="account-status">Guest mode</span>
-              <button class="google-button" id="google-login-button" type="button"><span>G</span> Save with Google</button>
-              <button class="logout-button" id="logout-button" type="button" hidden>Log out</button>
-            </div>
-            <button class="theme-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false"><span id="theme-icon">☾</span><span id="theme-label">Dark mode</span></button>
             <button class="primary-button" id="open-salary-modal"><span>＋</span> Add salary</button>
           </div>
         </header>
