@@ -50,6 +50,94 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 }
 
+function organizeViews() {
+  if ($('#view-overview')) return;
+  const main = $('.main-content');
+  const summary = $('.summary-grid');
+  const grid = $('.content-grid');
+  const salaryPanel = $('.salary-panel');
+  const categoriesPanel = $('.categories-panel');
+  if (!main || !summary || !grid || !salaryPanel || !categoriesPanel) return;
+
+  const overview = document.createElement('section');
+  overview.className = 'view-screen';
+  overview.id = 'view-overview';
+  overview.innerHTML = `
+    <div class="overview-grid">
+      <article class="panel overview-card">
+        <p class="eyebrow">WELCOME BACK</p>
+        <h2>Make your salary feel intentional.</h2>
+        <p class="overview-copy">Use Salary Manager to see what came in, what went out, and what you’re keeping for yourself.</p>
+        <button class="primary-button" data-view-jump="salary-history">View salary history</button>
+      </article>
+      <article class="panel overview-card">
+        <div class="panel-heading compact-heading"><div><p class="eyebrow">LATEST PAYCHECKS</p><h2>Recent salary</h2></div><span class="record-count" id="overview-record-count">0 records</span></div>
+        <div id="overview-salary-list" class="overview-salary-list"></div>
+      </article>
+    </div>
+  `;
+  const salaryView = document.createElement('section');
+  salaryView.className = 'view-screen';
+  salaryView.id = 'view-salary-history';
+  const categoriesView = document.createElement('section');
+  categoriesView.className = 'view-screen';
+  categoriesView.id = 'view-categories';
+
+  overview.prepend(summary);
+  salaryView.append(salaryPanel);
+  categoriesView.append(categoriesPanel);
+  grid.remove();
+  main.insertBefore(overview, main.querySelector('.setup-banner').nextSibling);
+  main.append(salaryView, categoriesView);
+  salaryPanel.querySelector('.eyebrow').textContent = 'YOUR PAYCHECKS';
+
+  document.querySelectorAll('.nav-links a').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      const href = link.getAttribute('href') || '';
+      setView(href === '#dashboard' ? 'overview' : href.slice(1));
+    });
+  });
+  document.querySelectorAll('[data-view-jump]').forEach((button) => {
+    button.addEventListener('click', () => setView(button.dataset.viewJump));
+  });
+  setView('overview');
+}
+
+function setView(view) {
+  const selected = view === 'overview' ? 'overview' : view;
+  document.querySelectorAll('.view-screen').forEach((screen) => {
+    screen.hidden = screen.id !== `view-${selected}`;
+    screen.classList.toggle('active', screen.id === `view-${selected}`);
+  });
+  document.querySelectorAll('.nav-links a').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    const linkView = href === '#dashboard' ? 'overview' : href.slice(1);
+    link.classList.toggle('active', linkView === selected);
+  });
+  history.replaceState(null, '', selected === 'overview' ? '#dashboard' : `#${selected}`);
+}
+
+function setupAccountArea() {
+  const accountArea = $('.account-area');
+  const themeButton = $('#theme-toggle');
+  if (!accountArea || !themeButton || $('#profile-chip')) return;
+  const profile = document.createElement('div');
+  profile.className = 'profile-chip';
+  profile.id = 'profile-chip';
+  profile.innerHTML = '<span class="profile-avatar" id="profile-avatar">G</span><span class="profile-name" id="profile-name">Guest user</span>';
+  accountArea.prepend(profile);
+  accountArea.insertBefore(themeButton, $('#account-status'));
+}
+
+function setProfile(name) {
+  const profileName = $('#profile-name');
+  const avatar = $('#profile-avatar');
+  if (!profileName || !avatar) return;
+  profileName.textContent = name;
+  avatar.textContent = name === 'Guest user' ? 'G' : name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+}
+
 async function ensureSession() {
   if (state.signedOut) return null;
   const current = await supabaseClient.auth.getSession();
@@ -184,6 +272,7 @@ async function updateAccountStatus() {
   const logoutButton = $('#logout-button');
   if (!supabaseClient || !status || !button || !logoutButton) return;
   if (state.signedOut) {
+    setProfile('Guest user');
     status.textContent = 'Signed out';
     button.hidden = false;
     button.innerHTML = '<span>G</span> Sign in with Google';
@@ -193,13 +282,15 @@ async function updateAccountStatus() {
   const { data, error } = await supabaseClient.auth.getUser();
   if (error || !data.user) return;
   if (data.user.is_anonymous) {
+    setProfile('Guest user');
     status.textContent = 'Guest mode';
     button.hidden = false;
     button.innerHTML = '<span>G</span> Save with Google';
     logoutButton.hidden = true;
   } else {
     const name = data.user.user_metadata?.full_name || data.user.email || 'Google account';
-    status.textContent = `Signed in as ${name}`;
+    setProfile(name);
+    status.textContent = 'Google connected';
     button.hidden = true;
     logoutButton.hidden = false;
   }
@@ -216,6 +307,21 @@ function renderSummary() {
   $('#deduction-rate').textContent = totalSalary ? `${Math.round((totalDeductions / totalSalary) * 100)}% allocated so far` : 'Start by adding a salary';
   $('#balance-caption').textContent = state.salaries.length ? 'Across all tracked salaries' : 'Your tracked take-home balance';
   $('#record-count').textContent = `${state.salaries.length} record${state.salaries.length === 1 ? '' : 's'}`;
+  const overviewCount = $('#overview-record-count');
+  if (overviewCount) overviewCount.textContent = `${state.salaries.length} record${state.salaries.length === 1 ? '' : 's'}`;
+  renderOverview();
+}
+
+function renderOverview() {
+  const list = $('#overview-salary-list');
+  if (!list) return;
+  const recent = state.salaries.slice(0, 3);
+  list.innerHTML = recent.length ? recent.map((salary) => `
+    <div class="overview-salary-row">
+      <div><span>${formatDate(salary.payDate)}</span><strong>${money.format(salary.amount)}</strong></div>
+      <div><strong>${money.format(salary.remaining)}</strong><span>available</span></div>
+    </div>
+  `).join('') : '<div class="history-empty">No salary records yet.</div>';
 }
 
 function renderSalaries() {
@@ -376,6 +482,9 @@ function applyTheme(theme) {
   $('#theme-icon').textContent = dark ? '☀' : '☾';
   $('#theme-label').textContent = dark ? 'Light mode' : 'Dark mode';
 }
+
+organizeViews();
+setupAccountArea();
 
 const savedTheme = localStorage.getItem('salaryManagerTheme');
 applyTheme(savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));

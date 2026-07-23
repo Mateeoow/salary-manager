@@ -43,6 +43,9 @@ h2 { font-size: 22px; }
 .setup-banner strong { color: var(--ink); }
 .top-actions { display: flex; align-items: center; gap: 16px; }
 .account-area { display: flex; align-items: center; gap: 10px; }
+.profile-chip { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.profile-avatar { display: grid; flex: 0 0 auto; place-items: center; width: 27px; height: 27px; border-radius: 50%; background: #a56bd4; color: #fff; font-size: 10px; font-weight: 700; }
+.profile-name { max-width: 120px; overflow: hidden; color: var(--ink); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .account-status { max-width: 170px; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .google-button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--white); color: var(--ink); font-size: 11px; font-weight: 700; transition: background .2s, border-color .2s; }
 .google-button:hover { border-color: #c9d8d0; background: #f5faf6; }
@@ -55,6 +58,16 @@ h2 { font-size: 22px; }
 .primary-button:hover { background: #0077ed; box-shadow: 0 10px 22px rgba(10,132,255,.25); transform: translateY(-1px); }
 .primary-button span { margin-right: 5px; font-size: 18px; vertical-align: -1px; }
 .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 17px; margin-bottom: 30px; }
+.view-screen[hidden] { display: none; }
+.overview-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 20px; }
+.overview-card { min-height: 230px; }
+.overview-card h2 { max-width: 320px; font-size: 27px; line-height: 1.05; }
+.overview-copy { max-width: 340px; margin: 16px 0 24px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.compact-heading { margin-bottom: 12px; }
+.overview-salary-list { display: grid; gap: 0; }
+.overview-salary-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+.overview-salary-row span { display: block; color: var(--muted); font-size: 11px; }
+.overview-salary-row strong { display: block; margin-top: 4px; font-family: 'Space Grotesk', sans-serif; font-size: 14px; }
 .summary-card { min-height: 185px; padding: 24px 25px; border-radius: 20px; box-shadow: var(--shadow); }
 .dark-card { background: var(--deep); color: white; }
 .coral-card { background: var(--coral); }
@@ -130,5 +143,5 @@ body.dark-mode .google-button, body.dark-mode .logout-button:hover, body.dark-mo
 body.dark-mode input, body.dark-mode select { border-color: var(--line); background: #141b19; color: var(--ink); }
 body.dark-mode .expense-history { background: #141c1a; }
 body.dark-mode .summary-card p { color: rgba(255,255,255,.62); }
-@media (max-width: 900px) { .sidebar { width: 190px; } .main-content { width: calc(100% - 190px); margin-left: 190px; padding: 40px 30px; } .brand-copy { left: 62px; } .content-grid { grid-template-columns: 1fr; } }
-@media (max-width: 680px) { .app-shell { display: block; } .sidebar { position: static; width: 100%; height: auto; padding: 18px 20px; flex-direction: row; align-items: center; gap: 12px; } .brand-copy { position: static; } .nav-links { display: none; } .sidebar-note, .sidebar-footer { display: none; } .main-content { width: 100%; margin-left: 0; padding: 32px 18px 45px; } .topbar { align-items: start; flex-direction: column; margin-bottom: 28px; } .top-actions { width: 100%; align-items: start; flex-direction: column-reverse; gap: 13px; } .account-area { width: 100%; justify-content: space-between; flex-wrap: wrap; } .theme-button { align-self: flex-start; } .summary-grid { grid-template-columns: 1fr; } .summary-card { min-height: 145px; } .summary-value { margin-top: 20px; } .salary-item { grid-template-columns: 1fr auto; gap: 10px; } .salary-breakdown { grid-column: 1 / 2; text-align: left; } .history-button, .add-deduction { grid-column: 2 / 3; } .history-button { grid-row: 1; } .add-deduction { grid-row: 2; } .expense-row { grid-template-columns: 1fr auto auto; } .panel { padding: 21px 18px; } .modal { padding: 30px 22px; } }
+@media (max-width: 900px) { .sidebar { width: 190px; } .main-content { width: calc(100% - 190px); margin-left: 190px; padding: 40px 30px; } .brand-copy { left: 62px; } .content-grid, .overview-grid { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .app-shell { display: block; } .sidebar { position: static; width: 100%; height: auto; padding: 18px 20px; flex-direction: row; align-items: center; gap: 12px; } .brand-copy { position: static; } .nav-links { display: none; } .sidebar-note, .sidebar-footer { display: none; } .main-content { width: 100%; margin-left: 0; padding: 32px 18px 45px; } .topbar { align-items: start; flex-direction: column; margin-bottom: 28px; } .top-actions { width: 100%; align-items: start; flex-direction: column-reverse; gap: 13px; } .account-area { width: 100%; justify-content: flex-start; flex-wrap: wrap; } .theme-button { align-self: flex-start; } .profile-name { max-width: 100px; } .account-status { display: none; } .summary-grid { grid-template-columns: 1fr; } .summary-card { min-height: 145px; } .summary-value { margin-top: 20px; } .salary-item { grid-template-columns: 1fr auto; gap: 10px; } .salary-breakdown { grid-column: 1 / 2; text-align: left; } .history-button, .add-deduction { grid-column: 2 / 3; } .history-button { grid-row: 1; } .add-deduction { grid-row: 2; } .expense-row { grid-template-columns: 1fr auto auto; } .panel { padding: 21px 18px; } .modal { padding: 30px 22px; } }
